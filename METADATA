@@ -1,0 +1,23 @@
+name: "arbitrary"
+description:
+    "The Arbitrary crate lets you construct arbitrary instance of a type."
+    ""
+    "This crate is primarily intended to be combined with a fuzzer like "
+    "libFuzzer and cargo-fuzz or AFL, and to help you turn the raw, untyped "
+    "byte buffers that they produce into well-typed, valid, structured values. "
+    "This allows you to combine structure-aware test case generation with "
+    "coverage-guided, mutation-based fuzzers."
+
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://crates.io/crates/arbitrary"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://static.crates.io/crates/arbitrary/arbitrary-0.4.6.crate"
+  }
+  version: "0.4.6"
+  last_upgrade_date { year: 2020 month: 10 day: 5 }
+  license_type: NOTICE
+}
