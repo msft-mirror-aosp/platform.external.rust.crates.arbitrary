@@ -28,7 +28,18 @@ Released YYYY-MM-DD.
 
 --------------------------------------------------------------------------------
 
+## 1.0.0
+
+Released 2020-02-24.
+
+See 1.0.0-rc1 and 1.0.0-rc2 for changes since 0.4.7, which was the last main
+line release.
+
+--------------------------------------------------------------------------------
+
 ## 1.0.0-rc2
+
+Released 2021-02-09.
 
 ### Added
 
@@ -38,10 +49,6 @@ Released YYYY-MM-DD.
 
 * Rename `Unstructured#get_bytes` to `Unstructured#bytes`. [#70](https://github.com/rust-fuzz/arbitrary/pull/70)
 * Passing an empty slice of choices to `Unstructured#choose` returns an error. Previously it would panic. [71](https://github.com/rust-fuzz/arbitrary/pull/71)
-
-### Removed
-
-*
 
 --------------------------------------------------------------------------------
 
