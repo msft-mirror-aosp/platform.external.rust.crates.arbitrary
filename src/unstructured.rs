@@ -221,7 +221,7 @@ impl<'a> Unstructured<'a> {
     }
 
     fn arbitrary_byte_size(&mut self) -> Result<usize> {
-        if self.data.len() == 0 {
+        if self.data.is_empty() {
             Ok(0)
         } else if self.data.len() == 1 {
             self.data = &[];
@@ -322,7 +322,7 @@ impl<'a> Unstructured<'a> {
         let mut offset: usize = 0;
 
         while offset < mem::size_of::<T>()
-            && (range >> T::Widest::from_usize(offset)) > T::Widest::ZERO
+            && (range >> T::Widest::from_usize(offset * 8)) > T::Widest::ZERO
         {
             let byte = bytes.next().ok_or(Error::NotEnoughData)?;
             result = (result << 8) | T::Widest::from_u8(byte);
@@ -405,11 +405,9 @@ impl<'a> Unstructured<'a> {
     /// ```
     pub fn fill_buffer(&mut self, buffer: &mut [u8]) -> Result<()> {
         let n = std::cmp::min(buffer.len(), self.data.len());
-        for i in 0..n {
-            buffer[i] = self.data[i];
-        }
-        for i in self.data.len()..buffer.len() {
-            buffer[i] = 0;
+        buffer[..n].copy_from_slice(&self.data[..n]);
+        for byte in buffer[n..].iter_mut() {
+            *byte = 0;
         }
         self.data = &self.data[n..];
         Ok(())
@@ -700,5 +698,17 @@ mod tests {
         assert_eq!(x, 0);
         let choice = *u.choose(&[42]).unwrap();
         assert_eq!(choice, 42)
+    }
+
+    #[test]
+    fn int_in_range_uses_minimal_amount_of_bytes() {
+        let mut u = Unstructured::new(&[1]);
+        u.int_in_range::<u8>(0..=u8::MAX).unwrap();
+
+        let mut u = Unstructured::new(&[1]);
+        u.int_in_range::<u32>(0..=u8::MAX as u32).unwrap();
+
+        let mut u = Unstructured::new(&[1]);
+        u.int_in_range::<u32>(0..=u8::MAX as u32 + 1).unwrap_err();
     }
 }
