@@ -41,6 +41,8 @@ rust_library_rlib {
     name: "libarbitrary",
     host_supported: true,
     crate_name: "arbitrary",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.0.2",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -49,10 +51,3 @@ rust_library_rlib {
     ],
     proc_macros: ["libderive_arbitrary"],
 }
-
-// dependent_library ["feature_list"]
-//   derive_arbitrary-1.0.1
-//   proc-macro2-1.0.27 "default,proc-macro"
-//   quote-1.0.9 "default,proc-macro"
-//   syn-1.0.73 "clone-impls,default,derive,parsing,printing,proc-macro,quote"
-//   unicode-xid-0.2.2 "default"
