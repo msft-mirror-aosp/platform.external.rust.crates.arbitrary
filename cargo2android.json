@@ -3,5 +3,6 @@
   "device": true,
   "features": "derive",
   "force-rlib": true,
-  "run": true
+  "run": true,
+  "tests": true
 }
