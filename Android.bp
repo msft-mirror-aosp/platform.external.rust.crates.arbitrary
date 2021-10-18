@@ -37,6 +37,83 @@ license {
     ],
 }
 
+rust_defaults {
+    name: "arbitrary_test_defaults",
+    crate_name: "arbitrary",
+    srcs: ["src/lib.rs"],
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.0.2",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    edition: "2018",
+    features: [
+        "derive",
+        "derive_arbitrary",
+    ],
+    proc_macros: ["libderive_arbitrary"],
+}
+
+rust_test_host {
+    name: "arbitrary_host_test_src_lib",
+    defaults: ["arbitrary_test_defaults"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_test {
+    name: "arbitrary_device_test_src_lib",
+    defaults: ["arbitrary_test_defaults"],
+}
+
+rust_defaults {
+    name: "arbitrary_test_defaults_arbitrary",
+    crate_name: "arbitrary",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.0.2",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    edition: "2018",
+    features: [
+        "derive",
+        "derive_arbitrary",
+    ],
+    rustlibs: [
+        "libarbitrary",
+    ],
+    proc_macros: ["libderive_arbitrary"],
+}
+
+rust_test_host {
+    name: "arbitrary_host_test_tests_derive",
+    defaults: ["arbitrary_test_defaults_arbitrary"],
+    srcs: ["tests/derive.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_test {
+    name: "arbitrary_device_test_tests_derive",
+    defaults: ["arbitrary_test_defaults_arbitrary"],
+    srcs: ["tests/derive.rs"],
+}
+
+rust_test_host {
+    name: "arbitrary_host_test_tests_path",
+    defaults: ["arbitrary_test_defaults_arbitrary"],
+    srcs: ["tests/path.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_test {
+    name: "arbitrary_device_test_tests_path",
+    defaults: ["arbitrary_test_defaults_arbitrary"],
+    srcs: ["tests/path.rs"],
+}
+
 rust_library_rlib {
     name: "libarbitrary",
     host_supported: true,
