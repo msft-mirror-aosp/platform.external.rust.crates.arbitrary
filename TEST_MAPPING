@@ -2,13 +2,18 @@
 {
   "presubmit": [
     {
-      "name": "arbitrary_device_test_src_lib"
+      "name": "arbitrary_test_src_lib"
     },
     {
-      "name": "arbitrary_device_test_tests_derive"
+      "name": "arbitrary_test_tests_derive"
+    }
+  ],
+  "presubmit-rust": [
+    {
+      "name": "arbitrary_test_src_lib"
     },
     {
-      "name": "arbitrary_device_test_tests_path"
+      "name": "arbitrary_test_tests_derive"
     }
   ]
 }
