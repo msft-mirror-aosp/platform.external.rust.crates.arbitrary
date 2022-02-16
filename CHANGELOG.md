@@ -26,31 +26,6 @@ Released YYYY-MM-DD.
 
 * TODO (or remove section if none)
 
-## 1.0.2
-
-Released 2021-08-25.
-
-### Added
-
-* `Arbitrary` impls for `HashMap`s and `HashSet`s with custom `Hasher`s [#87](https://github.com/rust-fuzz/arbitrary/pull/87)
-
---------------------------------------------------------------------------------
-
-## 1.0.1
-
-Released 2021-05-20.
-
-### Added
-
-* `Arbitrary` impls for `NonZeroX` types [#79](https://github.com/rust-fuzz/arbitrary/pull/79)
-* `Arbitrary` impls for all arrays using const generics [#55](https://github.com/rust-fuzz/arbitrary/pull/55)
-* `Arbitrary` impls for `Ipv4Addr` and `Ipv6Addr` [#84](https://github.com/rust-fuzz/arbitrary/pull/84)
-
-### Fixed
-
-* Use fewer bytes for `Unstructured::int_in_range()` [#80](https://github.com/rust-fuzz/arbitrary/pull/80)
-* Use correct range for `char` generation [#83](https://github.com/rust-fuzz/arbitrary/pull/83)
-
 --------------------------------------------------------------------------------
 
 ## 1.0.0
