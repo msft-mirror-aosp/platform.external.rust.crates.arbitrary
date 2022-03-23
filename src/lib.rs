@@ -37,16 +37,12 @@ pub mod size_hint;
 use core::cell::{Cell, RefCell, UnsafeCell};
 use core::iter;
 use core::mem;
-use core::num::{NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize};
-use core::num::{NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize};
 use core::ops::{Range, RangeBounds, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
 use core::str;
 use core::time::Duration;
 use std::borrow::{Cow, ToOwned};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque};
 use std::ffi::{CString, OsString};
-use std::hash::BuildHasher;
-use std::net::{Ipv4Addr, Ipv6Addr};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicUsize};
@@ -99,7 +95,7 @@ use std::sync::{Arc, Mutex};
 /// Implementing `Arbitrary` mostly involves nested calls to other `Arbitrary`
 /// arbitrary implementations for each of your `struct` or `enum`'s members. But
 /// sometimes you need some amount of raw data, or you need to generate a
-/// variably-sized collection type, or something of that sort. The
+/// variably-sized collection type, or you something of that sort. The
 /// [`Unstructured`][crate::Unstructured] type helps you with these tasks.
 ///
 /// ```
@@ -208,7 +204,7 @@ pub trait Arbitrary<'a>: Sized {
     /// not a recursive type, or your implementation is not transitively calling
     /// any other `size_hint` methods, you can ignore the `depth` parameter.
     /// Note that if you are implementing `Arbitrary` for a generic type, you
-    /// cannot guarantee the lack of type recursion!
+    /// cannot guarantee the lack of type recrusion!
     ///
     /// Otherwise, you need to use
     /// [`arbitrary::size_hint::recursion_guard(depth)`][crate::size_hint::recursion_guard]
@@ -349,13 +345,12 @@ impl_arbitrary_for_floats! {
 impl<'a> Arbitrary<'a> for char {
     fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self> {
         use std::char;
-        // The highest unicode code point is 0x11_FFFF
-        const CHAR_END: u32 = 0x11_0000;
+        const CHAR_END: u32 = 0x0011_000;
         // The size of the surrogate blocks
         const SURROGATES_START: u32 = 0xD800;
         let mut c = <u32 as Arbitrary<'a>>::arbitrary(u)? % CHAR_END;
         if let Some(c) = char::from_u32(c) {
-            Ok(c)
+            return Ok(c);
         } else {
             // We found a surrogate, wrap and try again
             c -= SURROGATES_START;
@@ -576,90 +571,60 @@ macro_rules! arbitrary_tuple {
 }
 arbitrary_tuple!(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z);
 
-// Helper to safely create arrays since the standard library doesn't
-// provide one yet. Shouldn't be necessary in the future.
-struct ArrayGuard<T, const N: usize> {
-    dst: *mut T,
-    initialized: usize,
-}
+macro_rules! arbitrary_array {
+    {$n:expr, ($t:ident, $a:ident) $(($ts:ident, $as:ident))*} => {
+        arbitrary_array!{($n - 1), $(($ts, $as))*}
 
-impl<T, const N: usize> Drop for ArrayGuard<T, N> {
-    fn drop(&mut self) {
-        debug_assert!(self.initialized <= N);
-        let initialized_part = core::ptr::slice_from_raw_parts_mut(self.dst, self.initialized);
-        unsafe {
-            core::ptr::drop_in_place(initialized_part);
+        impl<'a, T: Arbitrary<'a>> Arbitrary<'a> for [T; $n] {
+            fn arbitrary(u: &mut Unstructured<'a>) -> Result<[T; $n]> {
+                Ok([
+                    Arbitrary::arbitrary(u)?,
+                    $(<$ts as Arbitrary>::arbitrary(u)?),*
+                ])
+            }
+
+            #[allow(unused_mut)]
+            fn arbitrary_take_rest(mut u: Unstructured<'a>) -> Result<[T; $n]> {
+                $(let $as = $ts::arbitrary(&mut u)?;)*
+                let last = Arbitrary::arbitrary_take_rest(u)?;
+
+                Ok([
+                    $($as,)* last
+                ])
+            }
+
+            #[inline]
+            fn size_hint(depth: usize) -> (usize, Option<usize>) {
+                crate::size_hint::and_all(&[
+                    <$t as Arbitrary>::size_hint(depth),
+                    $( <$ts as Arbitrary>::size_hint(depth) ),*
+                ])
+            }
         }
-    }
-}
-
-fn create_array<F, T, const N: usize>(mut cb: F) -> [T; N]
-where
-    F: FnMut(usize) -> T,
-{
-    let mut array: mem::MaybeUninit<[T; N]> = mem::MaybeUninit::uninit();
-    let array_ptr = array.as_mut_ptr();
-    let dst = array_ptr as _;
-    let mut guard: ArrayGuard<T, N> = ArrayGuard {
-        dst,
-        initialized: 0,
     };
-    unsafe {
-        for (idx, value_ptr) in (&mut *array.as_mut_ptr()).iter_mut().enumerate() {
-            core::ptr::write(value_ptr, cb(idx));
-            guard.initialized += 1;
-        }
-        mem::forget(guard);
-        array.assume_init()
-    }
+    ($n: expr,) => {};
 }
 
-fn try_create_array<F, T, const N: usize>(mut cb: F) -> Result<[T; N]>
-where
-    F: FnMut(usize) -> Result<T>,
-{
-    let mut array: mem::MaybeUninit<[T; N]> = mem::MaybeUninit::uninit();
-    let array_ptr = array.as_mut_ptr();
-    let dst = array_ptr as _;
-    let mut guard: ArrayGuard<T, N> = ArrayGuard {
-        dst,
-        initialized: 0,
-    };
-    unsafe {
-        for (idx, value_ptr) in (&mut *array.as_mut_ptr()).iter_mut().enumerate() {
-            core::ptr::write(value_ptr, cb(idx)?);
-            guard.initialized += 1;
-        }
-        mem::forget(guard);
-        Ok(array.assume_init())
+impl<'a, T: Arbitrary<'a>> Arbitrary<'a> for [T; 0] {
+    fn arbitrary(_: &mut Unstructured<'a>) -> Result<[T; 0]> {
+        Ok([])
     }
-}
 
-impl<'a, T, const N: usize> Arbitrary<'a> for [T; N]
-where
-    T: Arbitrary<'a>,
-{
-    #[inline]
-    fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self> {
-        try_create_array(|_| <T as Arbitrary<'a>>::arbitrary(u))
+    fn arbitrary_take_rest(_: Unstructured<'a>) -> Result<[T; 0]> {
+        Ok([])
     }
 
     #[inline]
-    fn arbitrary_take_rest(mut u: Unstructured<'a>) -> Result<Self> {
-        let mut array = Self::arbitrary(&mut u)?;
-        if let Some(last) = array.last_mut() {
-            *last = Arbitrary::arbitrary_take_rest(u)?;
-        }
-        Ok(array)
-    }
-
-    #[inline]
-    fn size_hint(d: usize) -> (usize, Option<usize>) {
-        crate::size_hint::and_all(&create_array::<_, (usize, Option<usize>), N>(|_| {
-            <T as Arbitrary>::size_hint(d)
-        }))
+    fn size_hint(_: usize) -> (usize, Option<usize>) {
+        crate::size_hint::and_all(&[])
     }
 }
+
+arbitrary_array! { 32, (T, a) (T, b) (T, c) (T, d) (T, e) (T, f) (T, g) (T, h)
+(T, i) (T, j) (T, k) (T, l) (T, m) (T, n) (T, o) (T, p)
+(T, q) (T, r) (T, s) (T, u) (T, v) (T, w) (T, x) (T, y)
+(T, z) (T, aa) (T, ab) (T, ac) (T, ad) (T, ae) (T, af)
+(T, ag) }
 
 impl<'a> Arbitrary<'a> for &'a [u8] {
     fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self> {
@@ -737,8 +702,8 @@ impl<'a, A: Arbitrary<'a> + Ord> Arbitrary<'a> for BinaryHeap<A> {
     }
 }
 
-impl<'a, K: Arbitrary<'a> + Eq + ::std::hash::Hash, V: Arbitrary<'a>, S: BuildHasher + Default>
-    Arbitrary<'a> for HashMap<K, V, S>
+impl<'a, K: Arbitrary<'a> + Eq + ::std::hash::Hash, V: Arbitrary<'a>> Arbitrary<'a>
+    for HashMap<K, V>
 {
     fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self> {
         u.arbitrary_iter()?.collect()
@@ -754,9 +719,7 @@ impl<'a, K: Arbitrary<'a> + Eq + ::std::hash::Hash, V: Arbitrary<'a>, S: BuildHa
     }
 }
 
-impl<'a, A: Arbitrary<'a> + Eq + ::std::hash::Hash, S: BuildHasher + Default> Arbitrary<'a>
-    for HashSet<A, S>
-{
+impl<'a, A: Arbitrary<'a> + Eq + ::std::hash::Hash> Arbitrary<'a> for HashSet<A> {
     fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self> {
         u.arbitrary_iter()?.collect()
     }
@@ -909,7 +872,7 @@ impl<'a, A: Arbitrary<'a>> Arbitrary<'a> for Box<A> {
 
     #[inline]
     fn size_hint(depth: usize) -> (usize, Option<usize>) {
-        crate::size_hint::recursion_guard(depth, <A as Arbitrary>::size_hint)
+        crate::size_hint::recursion_guard(depth, |depth| <A as Arbitrary>::size_hint(depth))
     }
 }
 
@@ -955,7 +918,7 @@ impl<'a, A: Arbitrary<'a>> Arbitrary<'a> for Arc<A> {
 
     #[inline]
     fn size_hint(depth: usize) -> (usize, Option<usize>) {
-        crate::size_hint::recursion_guard(depth, <A as Arbitrary>::size_hint)
+        crate::size_hint::recursion_guard(depth, |depth| <A as Arbitrary>::size_hint(depth))
     }
 }
 
@@ -966,7 +929,7 @@ impl<'a, A: Arbitrary<'a>> Arbitrary<'a> for Rc<A> {
 
     #[inline]
     fn size_hint(depth: usize) -> (usize, Option<usize>) {
-        crate::size_hint::recursion_guard(depth, <A as Arbitrary>::size_hint)
+        crate::size_hint::recursion_guard(depth, |depth| <A as Arbitrary>::size_hint(depth))
     }
 }
 
@@ -1044,59 +1007,6 @@ impl<'a, A: Arbitrary<'a>> Arbitrary<'a> for ::std::num::Wrapping<A> {
     #[inline]
     fn size_hint(depth: usize) -> (usize, Option<usize>) {
         <A as Arbitrary<'a>>::size_hint(depth)
-    }
-}
-
-macro_rules! implement_nonzero_int {
-    ($nonzero:ty, $int:ty) => {
-        impl<'a> Arbitrary<'a> for $nonzero {
-            fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self> {
-                match Self::new(<$int as Arbitrary<'a>>::arbitrary(u)?) {
-                    Some(n) => Ok(n),
-                    None => Err(Error::IncorrectFormat),
-                }
-            }
-
-            #[inline]
-            fn size_hint(depth: usize) -> (usize, Option<usize>) {
-                <$int as Arbitrary<'a>>::size_hint(depth)
-            }
-        }
-    };
-}
-
-implement_nonzero_int! { NonZeroI8, i8 }
-implement_nonzero_int! { NonZeroI16, i16 }
-implement_nonzero_int! { NonZeroI32, i32 }
-implement_nonzero_int! { NonZeroI64, i64 }
-implement_nonzero_int! { NonZeroI128, i128 }
-implement_nonzero_int! { NonZeroIsize, isize }
-implement_nonzero_int! { NonZeroU8, u8 }
-implement_nonzero_int! { NonZeroU16, u16 }
-implement_nonzero_int! { NonZeroU32, u32 }
-implement_nonzero_int! { NonZeroU64, u64 }
-implement_nonzero_int! { NonZeroU128, u128 }
-implement_nonzero_int! { NonZeroUsize, usize }
-
-impl<'a> Arbitrary<'a> for Ipv4Addr {
-    fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self> {
-        Ok(Ipv4Addr::from(u32::arbitrary(u)?))
-    }
-
-    #[inline]
-    fn size_hint(_depth: usize) -> (usize, Option<usize>) {
-        (4, Some(4))
-    }
-}
-
-impl<'a> Arbitrary<'a> for Ipv6Addr {
-    fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self> {
-        Ok(Ipv6Addr::from(u128::arbitrary(u)?))
-    }
-
-    #[inline]
-    fn size_hint(_depth: usize) -> (usize, Option<usize>) {
-        (16, Some(16))
     }
 }
 
