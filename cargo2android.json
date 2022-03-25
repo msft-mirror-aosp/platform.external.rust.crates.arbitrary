@@ -1,0 +1,8 @@
+{
+  "dependencies": true,
+  "device": true,
+  "features": "derive",
+  "force-rlib": true,
+  "run": true,
+  "tests": true
+}
